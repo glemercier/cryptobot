@@ -115,7 +115,7 @@ impl Gridbot {
                     order_price,
                 )
                 .expect(format!("Failed to place buy order at {}", order_price).as_str());
-            println!("Placed buy order @ {} {}", order_price, coins[1]); 
+            println!("Placed buy order @ {} {}", order_price, coins[1]);
         }
 
         // Place sell orders
@@ -130,7 +130,7 @@ impl Gridbot {
                     order_price,
                 )
                 .expect(format!("Failed to place sell order at {}", order_price).as_str());
-            println!("Placed sell order @ {} {}", order_price, coins[1]); 
+            println!("Placed sell order @ {} {}", order_price, coins[1]);
         }
     }
 }
