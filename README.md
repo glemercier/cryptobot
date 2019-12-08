@@ -1,3 +1,4 @@
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 # Cryptocurrency Trading bot
 
 This repository contains a trading bot written in Rust that implements automatic trading on the [https://www.coss.io/](coss.io) platform.
