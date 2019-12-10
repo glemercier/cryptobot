@@ -16,8 +16,9 @@
  *
  */
 
-use crate::coss::{Client, OrderSide, OrderType};
+use crate::coss::{Client, OrderSide, OrderStatus, OrderType};
 use serde::Deserialize;
+use std::result::Result;
 
 #[derive(Deserialize, Clone, Debug)]
 pub(crate) struct Configuration {
@@ -31,6 +32,7 @@ pub(crate) struct Configuration {
 pub(crate) struct Gridbot {
     config: Configuration,
     client: Client,
+    order_ids: Vec<String>,
 }
 
 impl Gridbot {
@@ -38,11 +40,21 @@ impl Gridbot {
         Gridbot {
             config: config,
             client: client,
+            order_ids: vec![],
         }
     }
 
-    pub fn initialize(&self) {
+    pub fn initialize(&mut self) -> Result<(), String> {
         let coins: Vec<&str> = self.config.pair.split("_").collect();
+
+        // Check config parameters
+        if self.config.upper_limit < 0.0 || self.config.lower_limit < 0.0 {
+            return Err("Limits cannot be negative values".to_string());
+        }
+
+        if self.config.upper_limit < self.config.lower_limit {
+            return Err("Upper limit must be higher than lower limit".to_string());
+        }
 
         // Get current balance for each coin of the pai
         let balances: Vec<f32> = coins
@@ -60,7 +72,8 @@ impl Gridbot {
 
         // Check limits
         if current_price < self.config.lower_limit || current_price > self.config.upper_limit {
-            eprintln!("The current price for this pair is {} and should fit within the lower/upper limits. Quitting.", current_price);
+            return Err(format!("The current price for this pair is {} and should fit within the lower/upper limits",
+                current_price));
         }
 
         // Check balances are sufficient
@@ -86,17 +99,17 @@ impl Gridbot {
         }
 
         if balances[0] < required_sell_coins {
-            eprintln!(
+            return Err(format!(
                 "You need at least {} {} to start this bot (available: {})",
                 required_sell_coins, coins[0], balances[0]
-            );
+            ));
         }
 
         if balances[1] < required_buy_coins {
-            eprintln!(
+            return Err(format!(
                 "You need at least {} {} to start this bot (available: {})",
                 required_buy_coins, coins[1], balances[1]
-            );
+            ));
         }
 
         println!("Balances:");
@@ -116,6 +129,7 @@ impl Gridbot {
                 )
                 .expect(format!("Failed to place buy order at {}", order_price).as_str());
             println!("Placed buy order @ {} {}", order_price, coins[1]);
+            self.order_ids.push(order.order_id);
         }
 
         // Place sell orders
@@ -131,6 +145,38 @@ impl Gridbot {
                 )
                 .expect(format!("Failed to place sell order at {}", order_price).as_str());
             println!("Placed sell order @ {} {}", order_price, coins[1]);
+            self.order_ids.push(order.order_id);
         }
+
+        Ok(())
+    }
+
+    pub fn process(&mut self) -> Result<(), String> {
+        let mut to_remove: Vec<String> = vec![];
+
+        for id in &self.order_ids {
+            let order = self
+                .client
+                .get_order_details(id.as_str())
+                .expect("Failed to get order details");
+
+            match order.status {
+                OrderStatus::filled => {
+                    println!("Order @ {} was filled", order.order_price);
+                    to_remove.push(id.clone());
+                }
+                OrderStatus::canceled => {
+                    to_remove.push(id.clone());
+                }
+                _ => {
+                    // Don't do anything
+                }
+            }
+        }
+
+        // Remove orders that no longer need monitoring
+        self.order_ids.retain(|x| !to_remove.contains(x));
+
+        Ok(())
     }
 }

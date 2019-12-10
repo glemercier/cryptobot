@@ -17,6 +17,8 @@
  */
 
 use serde::Deserialize;
+use std::time::Duration;
+use tokio::time;
 
 mod coss;
 mod gridbot;
@@ -27,13 +29,20 @@ struct Configuration {
     gridbot: gridbot::Configuration,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let config: Configuration = hocon::HoconLoader::new()
         .load_file("config.conf")
         .and_then(hocon::HoconLoader::resolve)
         .expect("Invalid confiugration file");
 
-    let gridbot = gridbot::Gridbot::new(config.gridbot, coss::Client::new(config.credentials));
+    let mut gridbot = gridbot::Gridbot::new(config.gridbot, coss::Client::new(config.credentials));
 
-    gridbot.initialize();
+    gridbot.initialize().expect("Failed to initialize bot");
+
+    let mut interval = time::interval(Duration::from_millis(5000));
+    loop {
+        interval.tick().await;
+        gridbot.process().expect("Failed to process bot");
+    }
 }
