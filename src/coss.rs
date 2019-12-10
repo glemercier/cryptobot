@@ -32,73 +32,73 @@ pub(crate) struct Credentials {
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub(crate) struct Asset {
-    currency_code: Option<String>,
-    address: Option<String>,
-    total: String,
-    available: String,
-    in_order: String,
-    memo: Option<String>,
-    memoLabel: Option<String>,
+    pub currency_code: Option<String>,
+    pub address: Option<String>,
+    pub total: String,
+    pub available: String,
+    pub in_order: String,
+    pub memo: Option<String>,
+    pub memoLabel: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct Price {
-    symbol: String,
-    price: String,
-    updated_time: u64,
+    pub symbol: String,
+    pub price: String,
+    pub updated_time: u64,
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) enum OrderStatus {
-    OPEN,
-    CANCELLED,
-    FILLED,
-    PARTIAL_FILL,
-    CANCELLING,
+    open,
+    canceled,
+    filled,
+    partial_fill,
+    cancelling,
 }
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct OrderResponse {
-    order_id: String,
-    account_id: String,
-    order_symbol: String,
-    order_side: String,
-    status: OrderStatus,
-    createTime: u64,
-    r#type: String,
-    order_price: String,
-    order_size: String,
-    executed: String,
-    stop_prices: String,
-    avg: String,
+    pub order_id: String,
+    pub account_id: String,
+    pub order_symbol: String,
+    pub order_side: String,
+    pub status: OrderStatus,
+    pub createTime: u64,
+    pub r#type: String,
+    pub order_price: String,
+    pub order_size: String,
+    pub executed: String,
+    pub stop_price: String,
+    pub avg: String,
 }
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct OrderAddResponse {
-    hex_id: String,
-    order_id: String,
-    account_id: String,
-    order_symbol: String,
-    order_side: String,
-    status: String,
-    createTime: u64,
-    r#type: String,
-    timeMatching: u64,
-    order_price: f32,
-    order_size: f32,
-    executed: u64,
-    stop_price: f32,
-    avg: f32,
-    total: String,
+    pub hex_id: String,
+    pub order_id: String,
+    pub account_id: String,
+    pub order_symbol: String,
+    pub order_side: String,
+    pub status: String,
+    pub createTime: u64,
+    pub r#type: String,
+    pub timeMatching: u64,
+    pub order_price: String,
+    pub order_size: String,
+    pub executed: String,
+    pub stop_price: String,
+    pub avg: String,
+    pub total: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct CancelOrderResponse {
-    order_id: String,
-    order_symbol: String,
+    pub order_id: String,
+    pub order_symbol: String,
 }
 
 enum HttpRequest {
@@ -248,11 +248,7 @@ impl Client {
         Ok(price[0].price.parse::<f32>().unwrap())
     }
 
-    pub fn get_orders(
-        &self,
-        pair: &str,
-        timestamp: u64,
-    ) -> Result<Vec<OrderResponse>, serde_json::error::Error> {
+    pub fn get_orders(&self, pair: &str) -> Result<Vec<OrderResponse>, serde_json::error::Error> {
         let to_sign: String = format!(
             "
         {{
@@ -263,13 +259,43 @@ impl Client {
             \"timestamp\": \"{}\"
         }}",
             pair.to_string(),
-            timestamp
+            get_timestamp()
         );
 
         let orders: Vec<OrderResponse> = serde_json::from_str(
             self.api_request(
                 HttpRequest::POST,
                 get_url("/c/api/v1/order/list/all"),
+                to_sign,
+                vec![],
+            )
+            .unwrap()
+            .as_str(),
+        )?;
+
+        Ok(orders)
+    }
+
+    pub fn get_order_details(
+        &self,
+        order_id: &str,
+    ) -> Result<OrderResponse, serde_json::error::Error> {
+        let to_sign: String = format!(
+            "
+        {{
+            \"order_id\": \"{}\",
+            \"timestamp\": \"{}\"
+        }}",
+            order_id.to_string(),
+            get_timestamp()
+        );
+
+        println!("{}", to_sign);
+
+        let orders: OrderResponse = serde_json::from_str(
+            self.api_request(
+                HttpRequest::POST,
+                get_url("/c/api/v1/order/details"),
                 to_sign,
                 vec![],
             )
@@ -294,8 +320,8 @@ impl Client {
             \"order_symbol\": \"{}\",
             \"order_side\": \"{}\",
             \"type\": \"{}\",
-            \"order_size\": {},
-            \"order_price\": {},
+            \"order_size\": {:.3},
+            \"order_price\": {:.3},
             \"timestamp\": {}
         }}",
             pair.to_string(),
@@ -312,16 +338,18 @@ impl Client {
             get_timestamp()
         );
 
-        let response: OrderAddResponse = serde_json::from_str(
-            self.api_request(
+        let resp = self
+            .api_request(
                 HttpRequest::POST,
                 get_url("/c/api/v1/order/add/"),
                 to_sign,
                 vec![],
             )
-            .unwrap()
-            .as_str(),
-        )?;
+            .unwrap();
+
+        println!("{}", resp);
+
+        let response: OrderAddResponse = serde_json::from_str(resp.as_str())?;
 
         Ok(response)
     }
